@@ -120,6 +120,9 @@ function total() {
 }
 const tabNames = {
   wine: 'Weine',
+  secco: 'Secco',
+  spirits: 'Schnäpse',
+  liqueur: 'Liköre',
   drink: 'Alkoholfrei',
   food: 'Essen'
 };
@@ -170,8 +173,17 @@ function effectiveWineType(item) {
 function wineFieldValue(item, field) {
   return field === 'wineType' ? effectiveWineType(item) : item[field];
 }
+function sizeLabel(label) { return label === 'Preis' ? '' : label; }
 function addBottleFields(items) {
-  for (const item of items.filter(x => x.category === 'wine')) {
+  for (const item of items) {
+    if (!item.variants.some(v => v.label === 'Preis')) item.variants.push({label:'Preis',price:null});
+    if (['wine','secco','spirits','liqueur'].includes(item.category) && !item.variants.some(v => v.label === '2 cl')) item.variants.push({label:'2 cl',price:null});
+    if (item.category === 'drink') {
+      for (const label of [...DRINK_SIZES,'Flasche 0,7 l','Flasche 1,0 l']) {
+        if (!item.variants.some(v => v.label === label)) item.variants.push({label,price:null});
+      }
+    }
+    if (item.category !== 'wine') continue;
     for (const label of WINE_SIZES.slice(4)) {
       const size = label.includes('0,75') ? /0[,.]75\s*l/i : /(?:^|\s)1(?:[,.]0)?\s*l/i;
       if (!item.variants.some(v => size.test(v.label))) item.variants.push({label, price:null});
@@ -196,7 +208,7 @@ function wineFilterControls() {
 function wineBadges(item) {
   const labels = item.cultivation === 'organic' ? ['Bio'] : [];
   if (item.alcoholFree) labels.push('Alkoholfrei');
-  return '<div class="wine-badges">' + labels.map(label => `<span>${esc(label)}</span>`).join('') + '</div>';
+  return '<span class="wine-badges">' + labels.map(label => `<span>${esc(label)}</span>`).join('') + '</span>';
 }
 
 function wineEditor(item) {
@@ -212,7 +224,7 @@ function wineNameHtml(name) {
   return esc(name).replace(/-\s*([A-Za-zÄÖÜäöüß]{1,4})\s*-/g, '<span class="wine-name-suffix">-$1-</span>');
 }
 function catalogCard(item, number) {
-  return `<article class="item"><div class="item-top"><span class="number">${String(number).padStart(2,'0')}</span><h3>${item.category==='wine'?wineNameHtml(item.name)+wineBadges(item):esc(item.name)}</h3></div><div class="sizes">${item.variants.map((variant,index)=>variant.price===null?'':`<button data-add="${esc(item.id)}" data-variant="${index}" aria-label="${esc(item.name+' '+variant.label+' hinzufügen')}"><span>${esc(variant.label)}</span><b>${money(variant.price)}</b></button>`).join('')}</div></article>`;
+  return `<article class="item"><div class="item-top"><span class="number">${String(number).padStart(2,'0')}</span><h3>${item.category==='wine'?wineNameHtml(item.name)+wineBadges(item):esc(item.name)}</h3></div><div class="sizes">${item.variants.map((variant,index)=>variant.price===null?'':`<button data-add="${esc(item.id)}" data-variant="${index}" aria-label="${esc(item.name+' '+variant.label+' hinzufügen')}">${sizeLabel(variant.label)?`<span>${esc(variant.label)}</span>`:''}<b>${money(variant.price)}</b></button>`).join('')}</div></article>`;
 }
 function wineGroups(items) {
   const types = ['white','rose','red',''];
@@ -255,7 +267,7 @@ function renderSale() {
   const filters = category === 'wine' ? wineFilterControls() : '';
   const items = state.items.filter(x => x.category === category && x.variants.some(v => v.price !== null) && (category !== 'wine' || wineMatches(x)));
   main.innerHTML =
-    `<div class="page-top"><div><h1>Abrechnen</h1><p class="sub">Artikel antippen · Menge korrigieren · Abschließen</p></div></div><div class="work"><section>${tabs(category,'data-cat')}${filters}${catalogContent(items)}</section><aside class="receipt" id="receipt"><div class="receipt-head"><h2>Aktuelle Rechnung</h2><span class="chip">${state.cart.reduce((s,c)=>s+c.qty,0)} Artikel</span></div><label for="reference">Tisch / Person (optional)</label><input id="reference" placeholder="z. B. Tisch 4 · Person 2" value="${esc(state.reference)}"><div class="receipt-list">${state.cart.map((c,i)=>`<div class="line"><div class="line-title"><strong>${esc(c.name)}</strong><b>${money(c.price*c.qty)}</b></div><small>${esc(c.label)} · ${money(c.price)} je Stück</small><div class="quantity"><button data-qty="${i}" data-change="-1" aria-label="${esc(c.name)} verringern">−</button><span>${c.qty}</span><button data-qty="${i}" data-change="1" aria-label="${esc(c.name)} erhöhen">+</button></div></div>`).join('')||'<div class="empty">Noch keine Artikel.<br>Wähle links Getränke oder Essen aus.</div>'}</div><div class="total"><span>Gesamt</span><b>${money(total())}</b></div><button class="primary wide" data-checkout ${state.cart.length?'':'disabled'}>Abrechnung abschließen</button><button class="text-button" data-clear ${state.cart.length?'':'disabled'}>Rechnung verwerfen</button><p class="note">Abgeschlossene Artikel zählen zur Tagesübersicht. Die Tisch- oder Personenangabe wird dabei nicht aufbewahrt.</p></aside></div><div class="mobile-total"><div><small>Aktuelle Rechnung</small><b>${money(total())}</b></div><button data-receipt>Rechnung ansehen (${state.cart.reduce((s,c)=>s+c.qty,0)})</button></div>`;
+    `<div class="page-top"><div><h1>Abrechnen</h1><p class="sub">Artikel antippen · Menge korrigieren · Abschließen</p></div></div><div class="work"><section>${tabs(category,'data-cat')}${filters}${catalogContent(items)}</section><aside class="receipt" id="receipt"><div class="receipt-head"><h2>Aktuelle Rechnung</h2><span class="chip">${state.cart.reduce((s,c)=>s+c.qty,0)} Artikel</span></div><label for="reference">Tisch / Person (optional)</label><input id="reference" placeholder="z. B. Tisch 4 · Person 2" value="${esc(state.reference)}"><div class="receipt-list">${state.cart.map((c,i)=>`<div class="line"><div class="line-title"><strong>${esc(c.name)}</strong><b>${money(c.price*c.qty)}</b></div><small>${sizeLabel(c.label)?esc(c.label)+' · ':''}${money(c.price)} je Stück</small><div class="quantity"><button data-qty="${i}" data-change="-1" aria-label="${esc(c.name)} verringern">−</button><span>${c.qty}</span><button data-qty="${i}" data-change="1" aria-label="${esc(c.name)} erhöhen">+</button></div></div>`).join('')||'<div class="empty">Noch keine Artikel.<br>Wähle links Getränke oder Essen aus.</div>'}</div><div class="total"><span>Gesamt</span><b>${money(total())}</b></div><button class="primary wide" data-checkout ${state.cart.length?'':'disabled'}>Abrechnung abschließen</button><button class="text-button" data-clear ${state.cart.length?'':'disabled'}>Rechnung verwerfen</button><p class="note">Abgeschlossene Artikel zählen zur Tagesübersicht. Die Tisch- oder Personenangabe wird dabei nicht aufbewahrt.</p></aside></div><div class="mobile-total"><div><small>Aktuelle Rechnung</small><b>${money(total())}</b></div><button data-receipt>Rechnung ansehen (${state.cart.reduce((s,c)=>s+c.qty,0)})</button></div>`;
 }
 
 // Tagesübersicht
@@ -408,7 +420,7 @@ main.addEventListener('click', async e => {
       name: it.name,
       label: v.label,
       price: v.price,
-      category: it.category,
+      category: ['secco','spirits','liqueur'].includes(it.category) ? 'drink' : it.category,
       qty: 1
     });
     save();
@@ -449,11 +461,9 @@ main.addEventListener('click', async e => {
     }
     draft.push({
       id: uid(),
-      name: editCategory === 'wine' ? 'Neuer Wein' : editCategory === 'drink' ?
-        'Neues Getränk' : 'Neues Essen',
+      name: editCategory === 'wine' ? 'Neuer Wein' : editCategory === 'food' ? 'Neues Essen' : 'Neues Getränk',
       category: editCategory,
-      variants: (editCategory === 'wine' ? WINE_SIZES : editCategory === 'drink' ?
-        DRINK_SIZES : ['Portion']).map(label => ({
+      variants: (editCategory === 'wine' ? [...WINE_SIZES,'Preis','2 cl'] : editCategory === 'drink' ? [...DRINK_SIZES,'Flasche 0,7 l','Flasche 1,0 l','Preis'] : editCategory === 'secco' ? ['0,1 l','0,2 l','Flasche 0,75 l','Preis','2 cl'] : ['spirits','liqueur'].includes(editCategory) ? ['2 cl','Preis'] : ['Portion','Preis']).map(label => ({
         label,
         price: null
       }))
@@ -489,12 +499,12 @@ main.addEventListener('click', async e => {
     }
     const it = draft.find(x => x.id === b.dataset.sizes);
     const next = prompt(
-      'Größen / Varianten mit Semikolon trennen. Bestehende Preise bleiben nach Position erhalten.',
+      'Größen mit Semikolon trennen, z. B. Preis; 2 cl; Flasche 0,75 l. Preis = nur Betrag ohne Mengenüberschrift. Bestehende Preise bleiben nach Position erhalten.',
       it.variants.map(v => v.label).join('; '));
     if (next !== null) {
       const labels = next.split(';').map(x => x.trim()).filter(Boolean);
-      if (!labels.length || labels.length > 8 || new Set(labels).size !== labels.length) {
-        toast('Bitte 1 bis 8 unterschiedliche Größen eintragen.');
+      if (!labels.length || labels.length > 12 || new Set(labels).size !== labels.length) {
+        toast('Bitte 1 bis 12 unterschiedliche Größen eintragen.');
         return;
       }
       it.variants = labels.map((label, i) => ({

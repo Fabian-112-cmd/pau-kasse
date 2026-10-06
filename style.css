@@ -854,3 +854,6 @@ select { padding:12px; border:1px solid #ccc; border-radius:8px; background:whit
 
 .sticky-save { flex-wrap:wrap; }
 .sticky-save .add-bottom { margin-right:0; }
+
+.tabs { flex-wrap:wrap; }
+@media(max-width:650px) { .tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; } .tabs button { min-width:0; padding:8px 4px; font-size:12px; } }
