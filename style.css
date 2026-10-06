@@ -790,3 +790,28 @@ select { padding:12px; border:1px solid #ccc; border-radius:8px; background:whit
 .wine-checkbox { display:flex; align-items:center; gap:8px; min-height:44px; }
 .wine-checkbox input { width:20px; height:20px; margin:0; }
 @media (max-width:600px) { .wine-editor { grid-column:1/-1; } }
+
+/* Kompakte Weinübersicht mit Gruppenüberschriften */
+.wine-groups { display:grid; gap:22px; }
+.wine-group-title { font-size:18px; margin:0 0 10px; padding-bottom:7px; border-bottom:1px solid var(--line); color:var(--green,#173f35); }
+.wine-group .catalog { grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; align-items:start; }
+.wine-group .item { padding:11px; border-radius:10px; }
+.wine-group .item-top { margin-bottom:8px; gap:6px; align-items:start; }
+.wine-group .number { font-size:11px; min-width:20px; padding-top:2px; }
+.wine-group .item h3 { font-size:15px; line-height:1.3; overflow-wrap:anywhere; }
+.wine-group .sizes { gap:6px; }
+.wine-group .sizes button { min-height:52px; padding:7px 8px; }
+.wine-group .sizes button span { font-size:12px; margin-bottom:3px; }
+.wine-group .sizes button b { font-size:15px; white-space:nowrap; }
+.wine-group .wine-badges { margin:0 0 7px; }
+.wine-group .wine-badges span { font-size:11px; padding:2px 6px; }
+.wine-filters { padding:10px; gap:8px; margin-bottom:16px; }
+.wine-filters label { font-size:12px; }
+.wine-filters select { padding:8px 10px; font-size:14px; margin-top:4px; }
+@media(max-width:600px) {
+  .wine-group .catalog { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .wine-group .sizes { grid-template-columns:1fr; }
+  .wine-group .sizes button { min-height:44px; }
+  .wine-group .sizes button span { margin:0; }
+  .wine-group-title { font-size:17px; }
+}

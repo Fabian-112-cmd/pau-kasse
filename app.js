@@ -177,7 +177,7 @@ function wineFilterControls() {
 }
 
 function wineBadges(item) {
-  const labels = Object.entries(WINE_FIELDS).map(([field, spec]) => spec.values[item[field]]).filter(Boolean);
+  const labels = item.cultivation === 'organic' ? ['Bio'] : [];
   if (item.alcoholFree) labels.push('Alkoholfrei');
   return labels.length ? '<div class="wine-badges">' + labels.map(label => `<span>${esc(label)}</span>`).join('') + '</div>' : '';
 }
@@ -187,6 +187,39 @@ function wineEditor(item) {
   return '<div class="wine-editor">' + Object.entries(WINE_FIELDS).map(([field, spec]) =>
       `<label>${spec.label}<select data-wine-field="${field}" data-wine-id="${esc(item.id)}"><option value="">Noch nicht zugeordnet</option>${Object.entries(spec.values).map(([value,label]) => `<option value="${value}" ${item[field]===value?'selected':''}>${label}</option>`).join('')}</select></label>`).join('') +
     `<label class="wine-checkbox"><input type="checkbox" data-alcohol-free="${esc(item.id)}" ${item.alcoholFree?'checked':''}> Alkoholfreier Wein</label></div>`;
+}
+
+// Kompakte Weinkacheln unter gemeinsamen Gruppenüberschriften.
+function catalogCard(item, number) {
+  return `<article class="item"><div class="item-top"><span class="number">${String(number).padStart(2,'0')}</span><h3>${esc(item.name)}</h3></div>${item.category==='wine'?wineBadges(item):''}<div class="sizes">${item.variants.map((variant,index)=>variant.price===null?'':`<button data-add="${esc(item.id)}" data-variant="${index}" aria-label="${esc(item.name+' '+variant.label+' hinzufügen')}"><span>${esc(variant.label)}</span><b>${money(variant.price)}</b></button>`).join('')}</div></article>`;
+}
+function wineGroups(items) {
+  const types = ['white','rose','red',''];
+  const tastes = ['dry','medium','sweet',''];
+  const groups = [];
+  const schorle = items.filter(item => {
+    const visible = item.variants.filter(variant => variant.price !== null);
+    return visible.length > 0 && visible.every(variant => /schorle/i.test(variant.label));
+  });
+  if (schorle.length) groups.push({title: 'Schorle', items: schorle});
+  const wines = items.filter(item => !schorle.includes(item));
+  for (const type of types) {
+    for (const taste of tastes) {
+      const rows = wines.filter(item =>
+        (WINE_FIELDS.wineType.values[item.wineType] ? item.wineType : '') === type &&
+        (WINE_FIELDS.sweetness.values[item.sweetness] ? item.sweetness : '') === taste);
+      if (!rows.length) continue;
+      const title = [WINE_FIELDS.wineType.values[type] || 'Weitere Weine', WINE_FIELDS.sweetness.values[taste]].filter(Boolean).join(' · ');
+      groups.push({title, items:rows});
+    }
+  }
+  return groups;
+}
+function catalogContent(items) {
+  if (!items.length) return '<div class="empty">Keine passenden Artikel. Prüfe die Weinfilter oder trage unter „Artikel & Preise“ Preise ein.</div>';
+  if (category !== 'wine') return '<div class="catalog">' + items.map((item,index)=>catalogCard(item,index+1)).join('') + '</div>';
+  return '<div class="wine-groups">' + wineGroups(items).map(group =>
+    `<section class="wine-group"><h2 class="wine-group-title">${esc(group.title)}</h2><div class="catalog">${group.items.map(item=>catalogCard(item,items.indexOf(item)+1)).join('')}</div></section>`).join('') + '</div>';
 }
 
 // Ansichten anzeigen
@@ -204,7 +237,7 @@ function renderSale() {
   const filters = category === 'wine' ? wineFilterControls() : '';
   const items = state.items.filter(x => x.category === category && x.variants.some(v => v.price !== null) && (category !== 'wine' || wineMatches(x)));
   main.innerHTML =
-    `<div class="page-top"><div><h1>Abrechnen</h1><p class="sub">Artikel antippen · Menge korrigieren · Abschließen</p></div></div><div class="work"><section>${tabs(category,'data-cat')}${filters}<div class="catalog">${items.map((it,i)=>`<article class="item"><div class="item-top"><span class="number">${String(i+1).padStart(2,'0')}</span><h3>${esc(it.name)}</h3></div>${it.category==='wine'?wineBadges(it):''}<div class="sizes">${it.variants.map((v,j)=>v.price===null?'':`<button data-add="${esc(it.id)}" data-variant="${j}" aria-label="${esc(it.name+' '+v.label+' hinzufügen')} "><span>${esc(v.label)}</span><b>${money(v.price)}</b></button>`).join('')}</div></article>`).join('')||'<div class="empty">Keine passenden Artikel. Prüfe die Weinfilter oder trage unter „Artikel & Preise“ Preise ein.</div>'}</div></section><aside class="receipt" id="receipt"><div class="receipt-head"><h2>Aktuelle Rechnung</h2><span class="chip">${state.cart.reduce((s,c)=>s+c.qty,0)} Artikel</span></div><label for="reference">Tisch / Person (optional)</label><input id="reference" placeholder="z. B. Tisch 4 · Person 2" value="${esc(state.reference)}"><div class="receipt-list">${state.cart.map((c,i)=>`<div class="line"><div class="line-title"><strong>${esc(c.name)}</strong><b>${money(c.price*c.qty)}</b></div><small>${esc(c.label)} · ${money(c.price)} je Stück</small><div class="quantity"><button data-qty="${i}" data-change="-1" aria-label="${esc(c.name)} verringern">−</button><span>${c.qty}</span><button data-qty="${i}" data-change="1" aria-label="${esc(c.name)} erhöhen">+</button></div></div>`).join('')||'<div class="empty">Noch keine Artikel.<br>Wähle links Getränke oder Essen aus.</div>'}</div><div class="total"><span>Gesamt</span><b>${money(total())}</b></div><button class="primary wide" data-checkout ${state.cart.length?'':'disabled'}>Abrechnung abschließen</button><button class="text-button" data-clear ${state.cart.length?'':'disabled'}>Rechnung verwerfen</button><p class="note">Abgeschlossene Artikel zählen zur Tagesübersicht. Die Tisch- oder Personenangabe wird dabei nicht aufbewahrt.</p></aside></div><div class="mobile-total"><div><small>Aktuelle Rechnung</small><b>${money(total())}</b></div><button data-receipt>Rechnung ansehen (${state.cart.reduce((s,c)=>s+c.qty,0)})</button></div>`;
+    `<div class="page-top"><div><h1>Abrechnen</h1><p class="sub">Artikel antippen · Menge korrigieren · Abschließen</p></div></div><div class="work"><section>${tabs(category,'data-cat')}${filters}${catalogContent(items)}</section><aside class="receipt" id="receipt"><div class="receipt-head"><h2>Aktuelle Rechnung</h2><span class="chip">${state.cart.reduce((s,c)=>s+c.qty,0)} Artikel</span></div><label for="reference">Tisch / Person (optional)</label><input id="reference" placeholder="z. B. Tisch 4 · Person 2" value="${esc(state.reference)}"><div class="receipt-list">${state.cart.map((c,i)=>`<div class="line"><div class="line-title"><strong>${esc(c.name)}</strong><b>${money(c.price*c.qty)}</b></div><small>${esc(c.label)} · ${money(c.price)} je Stück</small><div class="quantity"><button data-qty="${i}" data-change="-1" aria-label="${esc(c.name)} verringern">−</button><span>${c.qty}</span><button data-qty="${i}" data-change="1" aria-label="${esc(c.name)} erhöhen">+</button></div></div>`).join('')||'<div class="empty">Noch keine Artikel.<br>Wähle links Getränke oder Essen aus.</div>'}</div><div class="total"><span>Gesamt</span><b>${money(total())}</b></div><button class="primary wide" data-checkout ${state.cart.length?'':'disabled'}>Abrechnung abschließen</button><button class="text-button" data-clear ${state.cart.length?'':'disabled'}>Rechnung verwerfen</button><p class="note">Abgeschlossene Artikel zählen zur Tagesübersicht. Die Tisch- oder Personenangabe wird dabei nicht aufbewahrt.</p></aside></div><div class="mobile-total"><div><small>Aktuelle Rechnung</small><b>${money(total())}</b></div><button data-receipt>Rechnung ansehen (${state.cart.reduce((s,c)=>s+c.qty,0)})</button></div>`;
 }
 
 // Tagesübersicht
