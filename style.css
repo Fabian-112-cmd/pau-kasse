@@ -815,3 +815,8 @@ select { padding:12px; border:1px solid #ccc; border-radius:8px; background:whit
   .wine-group .sizes button span { margin:0; }
   .wine-group-title { font-size:17px; }
 }
+
+/* Preisfelder passen sich auch bei zusätzlichen Flaschengrößen an. */
+.settings-row, .settings-row.drink, .settings-row.food { grid-template-columns:35px minmax(0,1fr); }
+.variant-editor { grid-column:2/-1; display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; }
+@media(max-width:600px) { .variant-editor { grid-column:1/-1; grid-template-columns:repeat(2,minmax(0,1fr)); } }

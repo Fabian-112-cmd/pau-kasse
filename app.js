@@ -2,7 +2,7 @@
 
 // Speicherung und Ausgangsartikel
 const KEY = 'bader-pau-kasse-v1';
-const WINE_SIZES = ['Wein 0,1 l', 'Wein 0,2 l', 'Schorle 0,25 l', 'Schorle 0,5 l'];
+const WINE_SIZES = ['Wein 0,1 l', 'Wein 0,2 l', 'Schorle 0,25 l', 'Schorle 0,5 l', 'Flasche 0,75 l', 'Flasche 1,0 l'];
 const DRINK_SIZES = ['0,25 l', '0,5 l'];
 const FOOD_NAMES = ['Fleischknöpfe mit Sauerkraut und Brot', 'Leberknödel mit Specksoße und Brot',
   'Saumagen mit Sauerkraut und Brot', 'Rebknorzenspieß mit Kartoffelsalat', 'Schafskäse mit Brot',
@@ -18,7 +18,7 @@ const defaults = () => ({
     name: 'Wein ' + (i + 1),
     variants: WINE_SIZES.map((label, j) => ({
       label,
-      price: [320, 500, 370, 580][j]
+      price: [320, 500, 370, 580][j] ?? null
     }))
   })), ...['Cola', 'Fanta', 'Sprite', 'Traubensaft rot – Schorle',
     'Traubensaft weiß – Schorle'
@@ -136,7 +136,8 @@ const WINE_FIELDS = {
     values: {
       white: 'Weißwein',
       rose: 'Rosé',
-      red: 'Rotwein'
+      red: 'Rotwein',
+      spritzer: 'Schorle'
     }
   },
   sweetness: {
@@ -144,7 +145,8 @@ const WINE_FIELDS = {
     values: {
       dry: 'Trocken',
       medium: 'Halbtrocken',
-      sweet: 'Lieblich'
+      sweet: 'Lieblich',
+      verySweet: 'Süß'
     }
   },
   cultivation: {
@@ -161,18 +163,33 @@ const wineFilters = {
   cultivation: ''
 };
 
+function effectiveWineType(item) {
+  const visible = item.variants.filter(v => v.price !== null);
+  return item.wineType === 'spritzer' || (visible.length && visible.every(v => /schorle/i.test(v.label))) ? 'spritzer' : item.wineType;
+}
+function wineFieldValue(item, field) {
+  return field === 'wineType' ? effectiveWineType(item) : item[field];
+}
+function addBottleFields(items) {
+  for (const item of items.filter(x => x.category === 'wine')) {
+    for (const label of WINE_SIZES.slice(4)) {
+      const size = label.includes('0,75') ? /0[,.]75\s*l/i : /(?:^|\s)1(?:[,.]0)?\s*l/i;
+      if (!item.variants.some(v => size.test(v.label))) item.variants.push({label, price:null});
+    }
+  }
+}
 function wineMatches(item) {
-  return Object.entries(wineFilters).every(([field, value]) => !value || item[field] === value);
+  return Object.entries(wineFilters).every(([field, value]) => !value || wineFieldValue(item, field) === value);
 }
 
 function wineFilterControls() {
   const available = state.items.filter(x => x.category === 'wine' && x.variants.some(v => v.price !== null));
   // If articles changed, remove a filter whose group no longer exists.
   for (const field of Object.keys(WINE_FIELDS)) {
-    if (wineFilters[field] && !available.some(x => x[field] === wineFilters[field])) wineFilters[field] = '';
+    if (wineFilters[field] && !available.some(x => wineFieldValue(x, field) === wineFilters[field])) wineFilters[field] = '';
   }
   return '<div class="wine-filters">' + Object.entries(WINE_FIELDS).map(([field, spec]) =>
-      `<label>${spec.label}<select data-wine-filter="${field}"><option value="">Alle</option>${Object.entries(spec.values).filter(([value]) => available.some(x => x[field] === value)).map(([value,label]) => `<option value="${value}" ${wineFilters[field]===value?'selected':''}>${label}</option>`).join('')}</select></label>`).join('') +
+      `<label>${spec.label}<select data-wine-filter="${field}"><option value="">Alle</option>${Object.entries(spec.values).filter(([value]) => available.some(x => wineFieldValue(x, field) === value)).map(([value,label]) => `<option value="${value}" ${wineFilters[field]===value?'selected':''}>${label}</option>`).join('')}</select></label>`).join('') +
     '<button class="text-button" data-clear-wine-filters>Alle Weine anzeigen</button></div>';
 }
 
@@ -195,12 +212,9 @@ function catalogCard(item, number) {
 }
 function wineGroups(items) {
   const types = ['white','rose','red',''];
-  const tastes = ['dry','medium','sweet',''];
+  const tastes = ['dry','medium','sweet','verySweet',''];
   const groups = [];
-  const schorle = items.filter(item => {
-    const visible = item.variants.filter(variant => variant.price !== null);
-    return visible.length > 0 && visible.every(variant => /schorle/i.test(variant.label));
-  });
+  const schorle = items.filter(item => effectiveWineType(item) === 'spritzer');
   if (schorle.length) groups.push({title: 'Schorle', items: schorle});
   const wines = items.filter(item => !schorle.includes(item));
   for (const type of types) {
@@ -257,10 +271,13 @@ function renderDay() {
 
 // Artikel und Preise bearbeiten
 function renderSettings() {
-  if (!draft) draft = structuredClone(state.items);
+  if (!draft) {
+    draft = structuredClone(state.items);
+    addBottleFields(draft);
+  }
   const items = draft.filter(x => x.category === editCategory);
   main.innerHTML =
-    `<div class="page-top"><div><h1>Artikel & Preise</h1><p class="sub">Namen, Größen und Preise selbst bearbeiten</p></div></div><div class="notice"><strong>Grundvorlage mit Beispielpreisen.</strong> Bitte vor der Nutzung eure Preise eintragen. Leeres Preisfeld = diese Größe wird in der Auswahl ausgeblendet. Preise gelten in Euro.</div>${tabs(editCategory,'data-edit-cat')}<div class="panel"><div class="page-top"><h2>${tabNames[editCategory]} (${items.length})</h2><button data-new class="primary">+ Artikel hinzufügen</button></div><div class="editor">${items.map((it,i)=>`<div class="settings-row ${editCategory==='wine'?'':editCategory}"><span class="number">${i+1}</span><label>Artikelname<input data-name="${esc(it.id)}" value="${esc(it.name)}" placeholder="Artikelname"></label>${it.variants.map((v,j)=>`<label>${esc(v.label)}<input type="text" inputmode="decimal" data-price="${esc(it.id)}" data-variant="${j}" value="${v.price===null?'':(v.price/100).toFixed(2).replace('.',',')}" placeholder="ausgeblendet" aria-label="Preis ${esc(it.name+' '+v.label)}"></label>`).join('')}${wineEditor(it)}<div style="grid-column:2/-1;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end"><button data-move="${esc(it.id)}" data-direction="-1" ${i===0?'disabled':''}>Nach oben</button><button data-move="${esc(it.id)}" data-direction="1" ${i===items.length-1?'disabled':''}>Nach unten</button><button class="text-button" data-sizes="${esc(it.id)}">Größen bearbeiten</button><button class="text-button danger" data-delete="${esc(it.id)}">Artikel löschen</button></div></div>`).join('')||'<p class="empty">Noch keine Artikel. Füge deinen ersten Artikel hinzu.</p>'}</div></div><div class="sticky-save"><button data-change-pin>PIN ändern</button><button data-cancel-settings>Abbrechen</button><button class="primary" data-save-settings>Änderungen speichern</button></div>`;
+    `<div class="page-top"><div><h1>Artikel & Preise</h1><p class="sub">Namen, Größen und Preise selbst bearbeiten</p></div></div><div class="notice"><strong>Grundvorlage mit Beispielpreisen.</strong> Bitte vor der Nutzung eure Preise eintragen. Leeres Preisfeld = diese Größe wird in der Auswahl ausgeblendet. Preise gelten in Euro.</div>${tabs(editCategory,'data-edit-cat')}<div class="panel"><div class="page-top"><h2>${tabNames[editCategory]} (${items.length})</h2><button data-new class="primary">+ Artikel hinzufügen</button></div><div class="editor">${items.map((it,i)=>`<div class="settings-row ${editCategory}"><span class="number">${i+1}</span><label>Artikelname<input data-name="${esc(it.id)}" value="${esc(it.name)}" placeholder="Artikelname"></label><div class="variant-editor">${it.variants.map((v,j)=>`<label>${esc(v.label)}<input type="text" inputmode="decimal" data-price="${esc(it.id)}" data-variant="${j}" value="${v.price===null?'':(v.price/100).toFixed(2).replace('.',',')}" placeholder="ausgeblendet" aria-label="Preis ${esc(it.name+' '+v.label)}"></label>`).join('')}</div>${wineEditor(it)}<div style="grid-column:2/-1;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end"><button data-move="${esc(it.id)}" data-direction="-1" ${i===0?'disabled':''}>Nach oben</button><button data-move="${esc(it.id)}" data-direction="1" ${i===items.length-1?'disabled':''}>Nach unten</button><button class="text-button" data-sizes="${esc(it.id)}">Größen bearbeiten</button><button class="text-button danger" data-delete="${esc(it.id)}">Artikel löschen</button></div></div>`).join('')||'<p class="empty">Noch keine Artikel. Füge deinen ersten Artikel hinzu.</p>'}</div></div><div class="sticky-save"><button data-change-pin>PIN ändern</button><button data-cancel-settings>Abbrechen</button><button class="primary" data-save-settings>Änderungen speichern</button></div>`;
 }
 
 // Eingaben prüfen
