@@ -135,6 +135,7 @@ function render() {
     .view === view));
   if (view === 'sale') renderSale();
   else if (view === 'day') renderDay();
+  else if (view === 'year') renderYear();
   else renderSettings();
 }
 
@@ -158,7 +159,7 @@ function renderDay() {
   const food = rows.filter(x => x.category === 'food').reduce((s, x) => s + x.qty, 0);
   const drinks = rows.filter(x => x.category !== 'food').reduce((s, x) => s + x.qty, 0);
   main.innerHTML =
-    `<div class="page-top"><div><h1>Tagesübersicht</h1><p class="sub">Auf diesem Gerät abgeschlossene Abrechnungen</p></div><label>Datum<input class="date-input" type="date" id="day-date" value="${selectedDate}"></label></div><div class="stats"><div class="stat"><span>Tagesumsatz</span><b>${money(day.total)}</b></div><div class="stat"><span>Abrechnungen</span><b>${day.count}</b></div><div class="stat"><span>Getränke / Essen</span><b>${drinks} / ${food}</b></div></div><div class="panel"><h2>Verkaufte Artikel</h2><div class="table-wrap"><table><thead><tr><th>Artikel</th><th>Größe</th><th class="right">Anzahl</th><th class="right">Umsatz</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.label)}</td><td class="right">${x.qty}</td><td class="right">${money(x.total)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Für diesen Tag liegen noch keine Abrechnungen vor.</td></tr>'}</tbody></table></div><div class="actions"><button data-export ${rows.length?'':'disabled'}>Tagesübersicht herunterladen</button><button class="danger" data-reset-day ${rows.length?'':'disabled'}>Tag zurücksetzen</button></div></div><p class="note">Einstellungen und Tageszahlen werden nur in diesem Browser auf diesem Gerät gespeichert. iPhone und iPad haben getrennte Übersichten. Beim Löschen der Browserdaten gehen sie verloren.</p>`;
+    `<div class="page-top"><div><h1>Tagesübersicht</h1><p class="sub">Gemeinsam gespeicherte Verkäufe</p></div><label>Datum<input class="date-input" type="date" id="day-date" value="${selectedDate}"></label></div><div class="stats"><div class="stat"><span>Tagesumsatz</span><b>${money(day.total)}</b></div><div class="stat"><span>Abrechnungen</span><b>${day.count}</b></div><div class="stat"><span>Getränke / Essen</span><b>${drinks} / ${food}</b></div></div><div class="panel"><h2>Verkaufte Artikel</h2><div class="table-wrap"><table><thead><tr><th>Artikel</th><th>Größe</th><th class="right">Anzahl</th><th class="right">Umsatz</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.label)}</td><td class="right">${x.qty}</td><td class="right">${money(x.total)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Für diesen Tag liegen noch keine Abrechnungen vor.</td></tr>'}</tbody></table></div><div class="actions"><button data-export ${rows.length?'':'disabled'}>Tagesübersicht herunterladen</button></div></div><p class="note">Verkäufe und Artikel werden nach erfolgreicher Speicherung zentral aufbewahrt. Mit derselben Anmeldung sind sie auf allen Geräten verfügbar.</p>`;
 }
 
 // Artikel und Preise bearbeiten
@@ -206,40 +207,39 @@ function readEditor() {
 
 // Abrechnung abschließen
 async function checkout() {
-  if (!state.cart.length) return;
+  if (!cloudUser || cloudBusy || !state.cart.length) return;
+  const lines = structuredClone(state.cart);
   const amount = total();
-  if (!await ask('Abrechnung abschließen?',
-      `${state.reference?state.reference+' · ':''}${money(amount)} wird zur heutigen Tagesübersicht hinzugefügt.`,
-      'Abschließen')) return;
-  const backup = structuredClone(state);
-  const date = today();
-  const day = state.days[date] || (state.days[date] = {
-    count: 0,
-    total: 0,
-    items: {}
-  });
-  day.count++;
-  day.total += amount;
-  state.cart.forEach(c => {
-    const key = c.id + '|' + c.label + '|' + c.name;
-    const row = day.items[key] || (day.items[key] = {
-      name: c.name,
-      label: c.label,
-      category: c.category,
-      qty: 0,
-      total: 0
+  if (!await ask('Abrechnung abschließen?', `${money(amount)} zentral speichern?`, 'Abschließen')) return;
+  cloudBusy = true;
+  const button = main.querySelector('[data-checkout]');
+  if (button) button.disabled = true;
+  try {
+    if (!pendingSale) pendingSale = {
+      id: uid(),
+      lines
+    };
+    persistDevice();
+    const {
+      error
+    } = await db.rpc('pau_kasse_checkout', {
+      p_id: pendingSale.id,
+      p_lines: pendingSale.lines
     });
-    row.qty += c.qty;
-    row.total += c.price * c.qty;
-  });
-  state.cart = [];
-  state.reference = '';
-  if (!save()) {
-    state = backup;
-    return;
+    if (error) throw error;
+    pendingSale = null;
+    state.cart = [];
+    state.reference = '';
+    save();
+    await refreshCloud();
+    render();
+    toast(`Gespeichert · ${money(amount)}`);
+  } catch (error) {
+    toast('Speicherung nicht bestätigt: ' + error.message + '. Bitte erneut abschließen.');
+  } finally {
+    cloudBusy = false;
+    if (button?.isConnected) button.disabled = false;
   }
-  render();
-  toast(`Abgeschlossen · ${money(amount)}`);
 }
 
 // Bedienung und Schaltflächen
@@ -257,7 +257,11 @@ main.addEventListener('change', e => {
 });
 main.addEventListener('click', async e => {
   const b = e.target.closest('button');
-  if (!b || b.disabled) return;
+  if (!b || b.disabled || cloudBusy) return;
+  if (pendingSale && (b.dataset.add || b.dataset.qty !== undefined || b.hasAttribute('data-clear'))) {
+    toast('Bitte die noch unbestätigte Rechnung erneut abschließen.');
+    return;
+  }
   if (b.dataset.cat) {
     category = b.dataset.cat;
     renderSale();
@@ -290,7 +294,7 @@ main.addEventListener('click', async e => {
   if (b.hasAttribute('data-checkout')) await checkout();
   if (b.hasAttribute('data-clear') && await ask('Rechnung verwerfen?',
       'Die aktuelle Eingabe wird geleert. Die Tagesübersicht bleibt erhalten.', 'Verwerfen'
-      )) {
+    )) {
     state.cart = [];
     state.reference = '';
     save();
@@ -389,14 +393,12 @@ main.addEventListener('click', async e => {
       toast('Bitte Artikelnamen und Preise prüfen (z. B. 3,50).');
       return;
     }
-    const previous = state.items;
-    state.items = structuredClone(draft);
-    if (save()) {
+    if (await saveCatalog(structuredClone(draft))) {
       draft = null;
       view = 'sale';
       render();
       toast('Artikel und Preise gespeichert.');
-    } else state.items = previous;
+    }
   }
   if (b.hasAttribute('data-cancel-settings')) {
     draft = null;
@@ -405,7 +407,7 @@ main.addEventListener('click', async e => {
   }
   if (b.hasAttribute('data-reset-day') && await ask('Tagesübersicht zurücksetzen?',
       `Alle Tageszahlen vom ${selectedDate} werden auf diesem Gerät gelöscht.`, 'Zurücksetzen'
-      )) {
+    )) {
     const previous = state.days[selectedDate];
     delete state.days[selectedDate];
     if (save()) {
@@ -440,7 +442,7 @@ main.addEventListener('click', async e => {
 // Navigation mit PIN-Schutz
 document.querySelector('nav').addEventListener('click', async e => {
   const b = e.target.closest('[data-view]');
-  if (!b) return;
+  if (!b || !cloudUser) return;
   if (b.dataset.view === 'settings' && view !== 'settings' && !await unlockSettings()) return;
   if (view === 'settings' && b.dataset.view !== 'settings' && draft) {
     if (!await ask('Bearbeitung verlassen?',
@@ -449,10 +451,18 @@ document.querySelector('nav').addEventListener('click', async e => {
   }
   view = b.dataset.view;
   if (view === 'day') selectedDate = today();
+  if (view === 'day' || view === 'year') {
+    try {
+      await refreshCloud();
+    } catch (error) {
+      toast(error.message);
+      return;
+    }
+  }
   render();
   window.scrollTo(0, 0);
 });
-render();
+// Start erfolgt nach Prüfung der Anmeldung in cloud.js.
 
 
 // Artikelreihenfolge

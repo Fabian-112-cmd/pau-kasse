@@ -768,3 +768,13 @@ dialog::backdrop {
     transform: none
   }
 }
+
+/* Anmeldung und Konto */
+[hidden] { display: none !important; }
+.account { display:flex; gap:12px; justify-content:flex-end; align-items:center; flex-wrap:wrap; padding:12px 5%; background:#f2f3ed; }
+.login { max-width:480px; margin:40px auto; }
+.login label { display:block; margin:18px 0; }
+.login input { width:100%; margin-top:8px; }
+.login button { margin:8px 0; }
+#login-error { color:#a33131; }
+select { padding:12px; border:1px solid #ccc; border-radius:8px; background:white; font:inherit; }
