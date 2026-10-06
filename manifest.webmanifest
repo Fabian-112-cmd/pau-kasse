@@ -1,6 +1,6 @@
 {
-  "name": "Bader-PAU Kasse",
-  "short_name": "PAU Kasse",
+  "name": "Kasse",
+  "short_name": "Kasse",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f2f4f3",
