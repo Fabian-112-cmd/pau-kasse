@@ -212,7 +212,7 @@ function wineNameHtml(name) {
   return esc(name).replace(/-\s*([A-Za-zÄÖÜäöüß]{1,4})\s*-/g, '<span class="wine-name-suffix">-$1-</span>');
 }
 function catalogCard(item, number) {
-  return `<article class="item"><div class="item-top"><span class="number">${String(number).padStart(2,'0')}</span><h3>${item.category==='wine'?wineNameHtml(item.name):esc(item.name)}</h3></div>${item.category==='wine'?wineBadges(item):''}<div class="sizes">${item.variants.map((variant,index)=>variant.price===null?'':`<button data-add="${esc(item.id)}" data-variant="${index}" aria-label="${esc(item.name+' '+variant.label+' hinzufügen')}"><span>${esc(variant.label)}</span><b>${money(variant.price)}</b></button>`).join('')}</div></article>`;
+  return `<article class="item"><div class="item-top"><span class="number">${String(number).padStart(2,'0')}</span><h3>${item.category==='wine'?wineNameHtml(item.name)+wineBadges(item):esc(item.name)}</h3></div><div class="sizes">${item.variants.map((variant,index)=>variant.price===null?'':`<button data-add="${esc(item.id)}" data-variant="${index}" aria-label="${esc(item.name+' '+variant.label+' hinzufügen')}"><span>${esc(variant.label)}</span><b>${money(variant.price)}</b></button>`).join('')}</div></article>`;
 }
 function wineGroups(items) {
   const types = ['white','rose','red',''];

@@ -821,16 +821,15 @@ select { padding:12px; border:1px solid #ccc; border-radius:8px; background:whit
 .variant-editor { grid-column:2/-1; display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; }
 @media(max-width:600px) { .variant-editor { grid-column:1/-1; grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
-/* Zwei Namenszeilen und rechts ausgerichtete Zusätze. Keine Namen abschneiden. */
-.wine-group .catalog { align-items:stretch; }
-.wine-group .item h3 { flex:1; min-width:0; min-height:2.6em; overflow-wrap:break-word; }
-.wine-name-suffix { white-space:nowrap; overflow-wrap:normal; }
-.wine-group .wine-badges { min-height:19px; justify-content:flex-end; align-items:center; }
-
-/* Zusätze teilen die zweite Namenszeile statt einer eigenen dritten Zeile. */
-.wine-group .item { position:relative; }
-.wine-group .item-top { margin-bottom:7px; }
-.wine-group .item h3 { padding-right:0; }
-.wine-group .wine-badges { position:absolute; top:31px; right:11px; margin:0; min-height:0; max-width:105px; justify-content:flex-end; }
-.wine-group .item:has(.wine-badges span) h3 { padding-right:78px; }
+/* Breitere Kacheln: voller Platz für den Namen, Zusätze fließen rechts mit. */
+.wine-group .catalog { grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); align-items:stretch; }
+.wine-group .item-top { margin-bottom:8px; }
+.wine-group .item h3 { flex:1; min-width:0; min-height:2.6em; overflow-wrap:normal; word-break:normal; }
+.wine-name-suffix { white-space:nowrap; }
+.wine-group .wine-badges { display:inline-flex; float:right; gap:4px; margin:2px 0 0 8px; font-weight:normal; max-width:100%; }
+.wine-group .wine-badges:empty { display:none; }
 .wine-group .wine-badges span { font-size:10px; padding:2px 4px; }
+@media(max-width:600px) {
+  .wine-group .catalog { grid-template-columns:1fr; }
+  .wine-group .sizes { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
