@@ -778,3 +778,15 @@ dialog::backdrop {
 .login button { margin:8px 0; }
 #login-error { color:#a33131; }
 select { padding:12px; border:1px solid #ccc; border-radius:8px; background:white; font:inherit; }
+
+/* Weinfilter und Merkmale */
+.wine-filters { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin:0 0 20px; padding:16px; border:1px solid var(--line,#deded6); border-radius:12px; }
+.wine-filters label { flex:1 1 140px; }
+.wine-filters select, .wine-editor select { display:block; width:100%; margin-top:6px; min-height:44px; }
+.wine-badges { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 12px; }
+.wine-badges span { font-size:12px; padding:4px 8px; border-radius:20px; background:#edf2e7; color:#315139; }
+.wine-editor { grid-column:2/-1; display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+.wine-editor > label { flex:1 1 160px; }
+.wine-checkbox { display:flex; align-items:center; gap:8px; min-height:44px; }
+.wine-checkbox input { width:20px; height:20px; margin:0; }
+@media (max-width:600px) { .wine-editor { grid-column:1/-1; } }

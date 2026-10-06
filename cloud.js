@@ -154,6 +154,7 @@ async function openAccount(user) {
   cloudUser = user;
   draft = null;
   view = 'sale';
+  Object.keys(wineFilters).forEach(field => wineFilters[field] = '');
   pendingSale = null;
   state = {
     ...defaults(),

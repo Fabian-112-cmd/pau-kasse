@@ -129,6 +129,66 @@ function tabs(active, attr) {
     `<button class="${active===k?'active':''}" ${attr}="${k}">${v}</button>`).join('') + '</div>';
 }
 
+// Weinmerkmale: bestehende Artikel bleiben bis zur Zuordnung neutral.
+const WINE_FIELDS = {
+  wineType: {
+    label: 'Weinart',
+    values: {
+      white: 'Weißwein',
+      rose: 'Rosé',
+      red: 'Rotwein'
+    }
+  },
+  sweetness: {
+    label: 'Geschmack',
+    values: {
+      dry: 'Trocken',
+      medium: 'Halbtrocken',
+      sweet: 'Lieblich'
+    }
+  },
+  cultivation: {
+    label: 'Anbau',
+    values: {
+      organic: 'Bio',
+      conventional: 'Normal'
+    }
+  }
+};
+const wineFilters = {
+  wineType: '',
+  sweetness: '',
+  cultivation: ''
+};
+
+function wineMatches(item) {
+  return Object.entries(wineFilters).every(([field, value]) => !value || item[field] === value);
+}
+
+function wineFilterControls() {
+  const available = state.items.filter(x => x.category === 'wine' && x.variants.some(v => v.price !== null));
+  // If articles changed, remove a filter whose group no longer exists.
+  for (const field of Object.keys(WINE_FIELDS)) {
+    if (wineFilters[field] && !available.some(x => x[field] === wineFilters[field])) wineFilters[field] = '';
+  }
+  return '<div class="wine-filters">' + Object.entries(WINE_FIELDS).map(([field, spec]) =>
+      `<label>${spec.label}<select data-wine-filter="${field}"><option value="">Alle</option>${Object.entries(spec.values).filter(([value]) => available.some(x => x[field] === value)).map(([value,label]) => `<option value="${value}" ${wineFilters[field]===value?'selected':''}>${label}</option>`).join('')}</select></label>`).join('') +
+    '<button class="text-button" data-clear-wine-filters>Alle Weine anzeigen</button></div>';
+}
+
+function wineBadges(item) {
+  const labels = Object.entries(WINE_FIELDS).map(([field, spec]) => spec.values[item[field]]).filter(Boolean);
+  if (item.alcoholFree) labels.push('Alkoholfrei');
+  return labels.length ? '<div class="wine-badges">' + labels.map(label => `<span>${esc(label)}</span>`).join('') + '</div>' : '';
+}
+
+function wineEditor(item) {
+  if (item.category !== 'wine') return '';
+  return '<div class="wine-editor">' + Object.entries(WINE_FIELDS).map(([field, spec]) =>
+      `<label>${spec.label}<select data-wine-field="${field}" data-wine-id="${esc(item.id)}"><option value="">Noch nicht zugeordnet</option>${Object.entries(spec.values).map(([value,label]) => `<option value="${value}" ${item[field]===value?'selected':''}>${label}</option>`).join('')}</select></label>`).join('') +
+    `<label class="wine-checkbox"><input type="checkbox" data-alcohol-free="${esc(item.id)}" ${item.alcoholFree?'checked':''}> Alkoholfreier Wein</label></div>`;
+}
+
 // Ansichten anzeigen
 function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset
@@ -141,10 +201,10 @@ function render() {
 
 // Abrechnung und Artikelauswahl
 function renderSale() {
-  const items = state.items.filter(x => x.category === category && x.variants.some(v => v.price !==
-    null));
+  const filters = category === 'wine' ? wineFilterControls() : '';
+  const items = state.items.filter(x => x.category === category && x.variants.some(v => v.price !== null) && (category !== 'wine' || wineMatches(x)));
   main.innerHTML =
-    `<div class="page-top"><div><h1>Abrechnen</h1><p class="sub">Artikel antippen · Menge korrigieren · Abschließen</p></div></div><div class="work"><section>${tabs(category,'data-cat')}<div class="catalog">${items.map((it,i)=>`<article class="item"><div class="item-top"><span class="number">${String(i+1).padStart(2,'0')}</span><h3>${esc(it.name)}</h3></div><div class="sizes">${it.variants.map((v,j)=>v.price===null?'':`<button data-add="${esc(it.id)}" data-variant="${j}" aria-label="${esc(it.name+' '+v.label+' hinzufügen')} "><span>${esc(v.label)}</span><b>${money(v.price)}</b></button>`).join('')}</div></article>`).join('')||'<div class="empty">Keine Artikel verfügbar. Unter „Artikel & Preise“ kannst du Artikel und Preise eintragen.</div>'}</div></section><aside class="receipt" id="receipt"><div class="receipt-head"><h2>Aktuelle Rechnung</h2><span class="chip">${state.cart.reduce((s,c)=>s+c.qty,0)} Artikel</span></div><label for="reference">Tisch / Person (optional)</label><input id="reference" placeholder="z. B. Tisch 4 · Person 2" value="${esc(state.reference)}"><div class="receipt-list">${state.cart.map((c,i)=>`<div class="line"><div class="line-title"><strong>${esc(c.name)}</strong><b>${money(c.price*c.qty)}</b></div><small>${esc(c.label)} · ${money(c.price)} je Stück</small><div class="quantity"><button data-qty="${i}" data-change="-1" aria-label="${esc(c.name)} verringern">−</button><span>${c.qty}</span><button data-qty="${i}" data-change="1" aria-label="${esc(c.name)} erhöhen">+</button></div></div>`).join('')||'<div class="empty">Noch keine Artikel.<br>Wähle links Getränke oder Essen aus.</div>'}</div><div class="total"><span>Gesamt</span><b>${money(total())}</b></div><button class="primary wide" data-checkout ${state.cart.length?'':'disabled'}>Abrechnung abschließen</button><button class="text-button" data-clear ${state.cart.length?'':'disabled'}>Rechnung verwerfen</button><p class="note">Abgeschlossene Artikel zählen zur Tagesübersicht. Die Tisch- oder Personenangabe wird dabei nicht aufbewahrt.</p></aside></div><div class="mobile-total"><div><small>Aktuelle Rechnung</small><b>${money(total())}</b></div><button data-receipt>Rechnung ansehen (${state.cart.reduce((s,c)=>s+c.qty,0)})</button></div>`;
+    `<div class="page-top"><div><h1>Abrechnen</h1><p class="sub">Artikel antippen · Menge korrigieren · Abschließen</p></div></div><div class="work"><section>${tabs(category,'data-cat')}${filters}<div class="catalog">${items.map((it,i)=>`<article class="item"><div class="item-top"><span class="number">${String(i+1).padStart(2,'0')}</span><h3>${esc(it.name)}</h3></div>${it.category==='wine'?wineBadges(it):''}<div class="sizes">${it.variants.map((v,j)=>v.price===null?'':`<button data-add="${esc(it.id)}" data-variant="${j}" aria-label="${esc(it.name+' '+v.label+' hinzufügen')} "><span>${esc(v.label)}</span><b>${money(v.price)}</b></button>`).join('')}</div></article>`).join('')||'<div class="empty">Keine passenden Artikel. Prüfe die Weinfilter oder trage unter „Artikel & Preise“ Preise ein.</div>'}</div></section><aside class="receipt" id="receipt"><div class="receipt-head"><h2>Aktuelle Rechnung</h2><span class="chip">${state.cart.reduce((s,c)=>s+c.qty,0)} Artikel</span></div><label for="reference">Tisch / Person (optional)</label><input id="reference" placeholder="z. B. Tisch 4 · Person 2" value="${esc(state.reference)}"><div class="receipt-list">${state.cart.map((c,i)=>`<div class="line"><div class="line-title"><strong>${esc(c.name)}</strong><b>${money(c.price*c.qty)}</b></div><small>${esc(c.label)} · ${money(c.price)} je Stück</small><div class="quantity"><button data-qty="${i}" data-change="-1" aria-label="${esc(c.name)} verringern">−</button><span>${c.qty}</span><button data-qty="${i}" data-change="1" aria-label="${esc(c.name)} erhöhen">+</button></div></div>`).join('')||'<div class="empty">Noch keine Artikel.<br>Wähle links Getränke oder Essen aus.</div>'}</div><div class="total"><span>Gesamt</span><b>${money(total())}</b></div><button class="primary wide" data-checkout ${state.cart.length?'':'disabled'}>Abrechnung abschließen</button><button class="text-button" data-clear ${state.cart.length?'':'disabled'}>Rechnung verwerfen</button><p class="note">Abgeschlossene Artikel zählen zur Tagesübersicht. Die Tisch- oder Personenangabe wird dabei nicht aufbewahrt.</p></aside></div><div class="mobile-total"><div><small>Aktuelle Rechnung</small><b>${money(total())}</b></div><button data-receipt>Rechnung ansehen (${state.cart.reduce((s,c)=>s+c.qty,0)})</button></div>`;
 }
 
 // Tagesübersicht
@@ -167,12 +227,20 @@ function renderSettings() {
   if (!draft) draft = structuredClone(state.items);
   const items = draft.filter(x => x.category === editCategory);
   main.innerHTML =
-    `<div class="page-top"><div><h1>Artikel & Preise</h1><p class="sub">Namen, Größen und Preise selbst bearbeiten</p></div></div><div class="notice"><strong>Grundvorlage mit Beispielpreisen.</strong> Bitte vor der Nutzung eure Preise eintragen. Leeres Preisfeld = diese Größe wird in der Auswahl ausgeblendet. Preise gelten in Euro.</div>${tabs(editCategory,'data-edit-cat')}<div class="panel"><div class="page-top"><h2>${tabNames[editCategory]} (${items.length})</h2><button data-new class="primary">+ Artikel hinzufügen</button></div><div class="editor">${items.map((it,i)=>`<div class="settings-row ${editCategory==='wine'?'':editCategory}"><span class="number">${i+1}</span><label>Artikelname<input data-name="${esc(it.id)}" value="${esc(it.name)}" placeholder="Artikelname"></label>${it.variants.map((v,j)=>`<label>${esc(v.label)}<input type="text" inputmode="decimal" data-price="${esc(it.id)}" data-variant="${j}" value="${v.price===null?'':(v.price/100).toFixed(2).replace('.',',')}" placeholder="ausgeblendet" aria-label="Preis ${esc(it.name+' '+v.label)}"></label>`).join('')}<div style="grid-column:2/-1;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end"><button data-move="${esc(it.id)}" data-direction="-1" ${i===0?'disabled':''}>Nach oben</button><button data-move="${esc(it.id)}" data-direction="1" ${i===items.length-1?'disabled':''}>Nach unten</button><button class="text-button" data-sizes="${esc(it.id)}">Größen bearbeiten</button><button class="text-button danger" data-delete="${esc(it.id)}">Artikel löschen</button></div></div>`).join('')||'<p class="empty">Noch keine Artikel. Füge deinen ersten Artikel hinzu.</p>'}</div></div><div class="sticky-save"><button data-change-pin>PIN ändern</button><button data-cancel-settings>Abbrechen</button><button class="primary" data-save-settings>Änderungen speichern</button></div>`;
+    `<div class="page-top"><div><h1>Artikel & Preise</h1><p class="sub">Namen, Größen und Preise selbst bearbeiten</p></div></div><div class="notice"><strong>Grundvorlage mit Beispielpreisen.</strong> Bitte vor der Nutzung eure Preise eintragen. Leeres Preisfeld = diese Größe wird in der Auswahl ausgeblendet. Preise gelten in Euro.</div>${tabs(editCategory,'data-edit-cat')}<div class="panel"><div class="page-top"><h2>${tabNames[editCategory]} (${items.length})</h2><button data-new class="primary">+ Artikel hinzufügen</button></div><div class="editor">${items.map((it,i)=>`<div class="settings-row ${editCategory==='wine'?'':editCategory}"><span class="number">${i+1}</span><label>Artikelname<input data-name="${esc(it.id)}" value="${esc(it.name)}" placeholder="Artikelname"></label>${it.variants.map((v,j)=>`<label>${esc(v.label)}<input type="text" inputmode="decimal" data-price="${esc(it.id)}" data-variant="${j}" value="${v.price===null?'':(v.price/100).toFixed(2).replace('.',',')}" placeholder="ausgeblendet" aria-label="Preis ${esc(it.name+' '+v.label)}"></label>`).join('')}${wineEditor(it)}<div style="grid-column:2/-1;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end"><button data-move="${esc(it.id)}" data-direction="-1" ${i===0?'disabled':''}>Nach oben</button><button data-move="${esc(it.id)}" data-direction="1" ${i===items.length-1?'disabled':''}>Nach unten</button><button class="text-button" data-sizes="${esc(it.id)}">Größen bearbeiten</button><button class="text-button danger" data-delete="${esc(it.id)}">Artikel löschen</button></div></div>`).join('')||'<p class="empty">Noch keine Artikel. Füge deinen ersten Artikel hinzu.</p>'}</div></div><div class="sticky-save"><button data-change-pin>PIN ändern</button><button data-cancel-settings>Abbrechen</button><button class="primary" data-save-settings>Änderungen speichern</button></div>`;
 }
 
 // Eingaben prüfen
 function readEditor() {
   let valid = true;
+  document.querySelectorAll('[data-wine-field]').forEach(el => {
+    const item = draft.find(x => x.id === el.dataset.wineId);
+    if (item) item[el.dataset.wineField] = el.value;
+  });
+  document.querySelectorAll('[data-alcohol-free]').forEach(el => {
+    const item = draft.find(x => x.id === el.dataset.alcoholFree);
+    if (item) item.alcoholFree = el.checked;
+  });
   document.querySelectorAll('[data-name]').forEach(el => {
     draft.find(x => x.id === el.dataset.name).name = el.value.trim();
     el.removeAttribute('aria-invalid');
@@ -250,6 +318,10 @@ main.addEventListener('input', e => {
   }
 });
 main.addEventListener('change', e => {
+  if (e.target.dataset.wineFilter) {
+    wineFilters[e.target.dataset.wineFilter] = e.target.value;
+    renderSale();
+  }
   if (e.target.id === 'day-date') {
     selectedDate = e.target.value || today();
     renderDay();
@@ -261,6 +333,10 @@ main.addEventListener('click', async e => {
   if (pendingSale && (b.dataset.add || b.dataset.qty !== undefined || b.hasAttribute('data-clear'))) {
     toast('Bitte die noch unbestätigte Rechnung erneut abschließen.');
     return;
+  }
+  if (b.hasAttribute('data-clear-wine-filters')) {
+    Object.keys(wineFilters).forEach(field => wineFilters[field] = '');
+    renderSale();
   }
   if (b.dataset.cat) {
     category = b.dataset.cat;
