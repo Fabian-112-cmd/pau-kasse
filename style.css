@@ -826,3 +826,11 @@ select { padding:12px; border:1px solid #ccc; border-radius:8px; background:whit
 .wine-group .item h3 { flex:1; min-width:0; min-height:2.6em; overflow-wrap:break-word; }
 .wine-name-suffix { white-space:nowrap; overflow-wrap:normal; }
 .wine-group .wine-badges { min-height:19px; justify-content:flex-end; align-items:center; }
+
+/* Zusätze teilen die zweite Namenszeile statt einer eigenen dritten Zeile. */
+.wine-group .item { position:relative; }
+.wine-group .item-top { margin-bottom:7px; }
+.wine-group .item h3 { padding-right:0; }
+.wine-group .wine-badges { position:absolute; top:31px; right:11px; margin:0; min-height:0; max-width:105px; justify-content:flex-end; }
+.wine-group .item:has(.wine-badges span) h3 { padding-right:78px; }
+.wine-group .wine-badges span { font-size:10px; padding:2px 4px; }
