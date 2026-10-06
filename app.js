@@ -196,7 +196,7 @@ function wineFilterControls() {
 function wineBadges(item) {
   const labels = item.cultivation === 'organic' ? ['Bio'] : [];
   if (item.alcoholFree) labels.push('Alkoholfrei');
-  return labels.length ? '<div class="wine-badges">' + labels.map(label => `<span>${esc(label)}</span>`).join('') + '</div>' : '';
+  return '<div class="wine-badges">' + labels.map(label => `<span>${esc(label)}</span>`).join('') + '</div>';
 }
 
 function wineEditor(item) {
@@ -207,8 +207,12 @@ function wineEditor(item) {
 }
 
 // Kompakte Weinkacheln unter gemeinsamen Gruppenüberschriften.
+function wineNameHtml(name) {
+  // Kurze Zusätze wie -S- bleiben beim Zeilenumbruch zusammen.
+  return esc(name).replace(/-\s*([A-Za-zÄÖÜäöüß]{1,4})\s*-/g, '<span class="wine-name-suffix">-$1-</span>');
+}
 function catalogCard(item, number) {
-  return `<article class="item"><div class="item-top"><span class="number">${String(number).padStart(2,'0')}</span><h3>${esc(item.name)}</h3></div>${item.category==='wine'?wineBadges(item):''}<div class="sizes">${item.variants.map((variant,index)=>variant.price===null?'':`<button data-add="${esc(item.id)}" data-variant="${index}" aria-label="${esc(item.name+' '+variant.label+' hinzufügen')}"><span>${esc(variant.label)}</span><b>${money(variant.price)}</b></button>`).join('')}</div></article>`;
+  return `<article class="item"><div class="item-top"><span class="number">${String(number).padStart(2,'0')}</span><h3>${item.category==='wine'?wineNameHtml(item.name):esc(item.name)}</h3></div>${item.category==='wine'?wineBadges(item):''}<div class="sizes">${item.variants.map((variant,index)=>variant.price===null?'':`<button data-add="${esc(item.id)}" data-variant="${index}" aria-label="${esc(item.name+' '+variant.label+' hinzufügen')}"><span>${esc(variant.label)}</span><b>${money(variant.price)}</b></button>`).join('')}</div></article>`;
 }
 function wineGroups(items) {
   const types = ['white','rose','red',''];
