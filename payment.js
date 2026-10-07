@@ -155,3 +155,34 @@ renderTables=function(){paymentTablesBase();main.querySelectorAll('[data-seat]')
 
 const paymentRefreshBase=refreshCloud;
 refreshCloud=async function(){await paymentRefreshBase();const user=cloudUser;if(!user)return;const result=await db.from('pau_kasse_deposits').select('*').eq('user_id',user.workspace_id||user.id).maybeSingle();if(result.error)throw result.error;if(cloudUser?.id!==user.id)return;if(result.data){depositKinds=result.data.kinds;if(!selectedSeat&&!state.cart.length&&!paymentDraft.tip&&!paymentDraft.deposits.some(x=>x.issued||x.returned)){paymentDraft=blankPayment();directPayment=blankPayment();}}};
+
+// Administrative reset, protected independently by a server-checked code.
+const resetSettingsBase = renderSettings;
+renderSettings = function() {
+  resetSettingsBase();
+  if (!cloudUser?.is_admin) return;
+  const section = document.createElement('details');
+  section.className = 'panel';
+  section.innerHTML = `<summary>Verwaltung</summary><p>Alle Umsätze und Jahresarchive dieses Kassenbereichs auf null setzen. Offene Rechnungen werden geleert, feste Tische bleiben erhalten. Artikel, Preise, Pfandbeträge und Benutzer bleiben erhalten. Vorher wird eine Sicherung in der Datenbank erstellt.</p><button class="danger" data-reset-register>Kasse auf null zurücksetzen</button>`;
+  main.querySelector('.sticky-save').before(section);
+};
+main.addEventListener('click', async event => {
+  const button = event.target.closest('[data-reset-register]');
+  if (!button || cloudBusy || !cloudUser?.is_admin) return;
+  if (pendingSale) { toast('Bitte zuerst die unbestätigte Zahlung klären.'); return; }
+  cloudBusy = true;
+  button.disabled = true;
+  try {
+    const code = await pinPrompt('Kasse zurücksetzen', 'Separaten vierstelligen Reset-Code eingeben. Alle anderen Geräte vorher abmelden und keine weiteren Buchungen erfassen.');
+    if (code === null) return;
+    if (!await ask('Wirklich alles auf null setzen?', 'Alle Umsätze, Trinkgeld- und Pfandsummen sowie Jahresarchive dieses Kassenbereichs werden zurückgesetzt. Offene Rechnungen werden geleert und Einzelpersonen entfernt. Artikel, Preise und Benutzer bleiben erhalten. Vorher wird eine Datenbanksicherung erstellt.', 'Auf null zurücksetzen')) return;
+    const result = await db.rpc('pau_kasse_reset', {p_code: code});
+    if (result.error) throw result.error;
+    pendingSale = null; selectedSeat = null; seatRevision = 0; seatDirty = false;
+    state.cart = []; state.reference = ''; directCart = []; directReference = '';
+    paymentDraft = blankPayment(); directPayment = blankPayment();
+    save(); await refreshCloud(); view = 'day'; render();
+    toast('Kasse zurückgesetzt · Sicherung erstellt');
+  } catch (error) { toast(message(error)); }
+  finally { cloudBusy = false; button.disabled = false; }
+});
