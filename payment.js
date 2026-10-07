@@ -115,7 +115,7 @@ checkout=async function(){
 function paymentSummary(sales){return sales.reduce((s,x)=>{s.tip+=Number(x.tip_cents||0);s.deposit+=Number(x.deposit_cents||0);if(x.payment_method==='cash')s.cash+=Number(x.total_cents)+Number(x.tip_cents||0)+Number(x.deposit_cents||0);if(x.payment_method==='card')s.card+=Number(x.total_cents)+Number(x.tip_cents||0)+Number(x.deposit_cents||0);return s;},{tip:0,deposit:0,cash:0,card:0});}
 function summaryHtml(s){return `<div class="payment-stats"><span>Trinkgeld <b>${money(s.tip)}</b></span><span>Pfand netto <b>${money(s.deposit)}</b></span><span>Bar <b>${money(s.cash)}</b></span><span>Karte <b>${money(s.card)}</b></span></div>`;}
 const paymentDayBase=renderDay;
-renderDay=function(){paymentDayBase();const box=document.createElement('div');box.innerHTML=summaryHtml(paymentSummary(cloudSales.filter(x=>x.business_date===selectedDate)));main.append(box);if(cloudUser?.is_admin&&!cloudUser.is_test){const actions=document.createElement('div');actions.className='actions';actions.innerHTML='<button data-move-day-tests>Tag als Test verschieben</button><button data-move-all-tests>Bisherige Testbuchungen aus echter Kasse entfernen</button>';main.append(actions);}};
+renderDay=function(){paymentDayBase();const box=document.createElement('div');box.innerHTML=summaryHtml(paymentSummary(cloudSales.filter(x=>x.business_date===selectedDate)));main.append(box);};
 const paymentYearBase=renderYear;
 renderYear=function(){paymentYearBase();const archive=archivedYears.find(x=>x.year===chosenYear);const summary=archive?.summary?.payment||paymentSummary(cloudSales.filter(x=>Number(x.business_date.slice(0,4))===chosenYear));const box=document.createElement('div');box.innerHTML=summaryHtml(summary);main.append(box);};
 const paymentSettingsBase=renderSettings;
@@ -127,15 +127,7 @@ main.addEventListener('click',async e=>{
       const kinds=depositKinds.map((kind,i)=>{const name=main.querySelector('[data-pfand-name="'+i+'"]').value.trim();const raw=main.querySelector('[data-pfand-price="'+i+'"]').value.trim();if(!name||!/^\d{1,5}([,.]\d{1,2})?$/.test(raw))throw Error('Bitte Pfandbezeichnung und gültigen Betrag eingeben.');return {name,price:Math.round(Number(raw.replace(',','.'))*100)};});
       cloudBusy=true;const r=await db.from('pau_kasse_deposits').upsert({user_id:cloudUser.workspace_id,kinds});if(r.error)throw r.error;depositKinds=kinds;if(!state.cart.length&&!selectedSeat){paymentDraft=blankPayment();directPayment=blankPayment();save();}toast('Pfand-Einstellungen gespeichert');
     }
-    if(b.hasAttribute('data-move-day-tests')||b.hasAttribute('data-move-all-tests')){
-      if(pendingSale)throw Error('Bitte zuerst die unbestätigte Zahlung abschließen.');
-      if(!await unlockSettings())return;
-      const day=b.hasAttribute('data-move-day-tests')?selectedDate:null;
-      const sales=cloudSales.filter(x=>!day||x.business_date===day);if(!sales.length){toast('Keine Buchungen vorhanden');return;}
-      const before=sales.map(x=>x.created_at).sort().at(-1);
-      if(!await ask('Als Test verschieben?',`${sales.length} Abrechnungen · ${money(sales.reduce((s,x)=>s+Number(x.total_cents),0))}${day?' vom '+day:''} aus der echten Kasse in „Test“ verschieben? Artikel und offene Tische bleiben erhalten.`,'Als Test verschieben'))return;
-      cloudBusy=true;const r=await db.rpc('pau_kasse_move_tests',{p_before:before,p_day:day});if(r.error)throw r.error;await refreshCloud();render();toast(r.data+' Testbuchungen verschoben');
-    }
+
   }catch(error){toast(message(error));}finally{cloudBusy=false;}
 });
 account.addEventListener('click',e=>{if(e.target.closest('[data-password]')&&!cloudBusy)showPasswordDialog();});
