@@ -7,6 +7,7 @@ let cloudBusy = false;
 let pendingSale = null;
 let revision = 0;
 let archivedYears = [];
+let cloudSales = [];
 let authGeneration = 0;
 const account = document.querySelector('#account');
 const db = window.supabase?.createClient(PAU_CONFIG.url, PAU_CONFIG.key, {
@@ -52,10 +53,10 @@ function loginScreen(text = '') {
   document.querySelector('nav').hidden = true;
   account.innerHTML = '';
   main.innerHTML = `<section class="panel login"><h1>PAU · MAYA</h1><p>Kasse anmelden</p>
-    <form id="login-form"><label>E-Mail<input type="email" name="email" required autocomplete="username"></label>
+    <form id="login-form"><label>Benutzername<input type="text" name="email" required autocomplete="username" placeholder="Test oder Bedienung 1"></label>
     <label>Passwort<input type="password" name="password" required autocomplete="current-password"></label>
     <p id="login-error" role="alert">${esc(text)}</p><button class="primary wide">Anmelden</button></form>
-    <p class="note">Verwende deine Zugangsdaten von der Weintour.</p></section>`;
+    <p class="note">Test oder Bedienung 1, 2, 3 auswählen. Die bisherige Inhaber-Anmeldung per E-Mail bleibt möglich.</p></section>`;
   document.querySelector('#login-form').addEventListener('submit', async e => {
     e.preventDefault();
     const f = e.target;
@@ -66,7 +67,7 @@ function loginScreen(text = '') {
       const {
         error
       } = await db.auth.signInWithPassword({
-        email: f.email.value.trim(),
+        email: await resolveLoginEmail(f.email.value.trim()),
         password: f.password.value
       });
       if (error) throw error;
@@ -81,8 +82,8 @@ async function refreshCloud() {
   const user = cloudUser;
   if (!user) throw Error('Bitte anmelden.');
   const results = await Promise.all([
-    db.from('pau_kasse_catalog').select('*').eq('user_id', user.id).maybeSingle(),
-    db.from('pau_kasse_years').select('*').eq('user_id', user.id).order('year', {
+    db.from('pau_kasse_catalog').select('*').eq('user_id', user.workspace_id || user.id).maybeSingle(),
+    db.from('pau_kasse_years').select('*').eq('user_id', user.workspace_id || user.id).order('year', {
       ascending: false
     })
   ]);
@@ -92,12 +93,13 @@ async function refreshCloud() {
   if (!catalog) throw Error('Artikelvorlage noch nicht eingerichtet.');
   const sales = [];
   for (let start = 0;; start += 1000) {
-    const r = await db.from('pau_kasse_sales').select('*').eq('user_id', user.id).order('created_at').order('id').range(start, start + 999);
+    const r = await db.from('pau_kasse_sales').select('*').eq('user_id', user.workspace_id || user.id).order('created_at').order('id').range(start, start + 999);
     if (r.error) throw r.error;
     sales.push(...r.data);
     if (r.data.length < 1000) break;
   }
   if (cloudUser?.id !== user.id) return;
+  cloudSales = sales;
   state.items = catalog.items;
   revision = catalog.revision;
   archivedYears = results[1].data;
@@ -135,7 +137,7 @@ async function saveCatalog(items) {
         revision: revision + 1,
         updated_at: new Date().toISOString()
       })
-      .eq('user_id', cloudUser.id).eq('revision', revision).select('revision');
+      .eq('user_id', cloudUser.workspace_id || cloudUser.id).eq('revision', revision).select('revision');
     if (r.error) throw r.error;
     if (!r.data.length) throw Error('Die Artikel wurden auf einem anderen Gerät geändert. Bitte abbrechen und neu laden.');
     state.items = items;
@@ -176,7 +178,7 @@ async function openAccount(user) {
       pendingSale = saved.pendingSale || null;
     }
     if (pendingSale) state.cart = structuredClone(pendingSale.lines);
-    const r = await db.from('pau_kasse_catalog').select('user_id').eq('user_id', user.id).maybeSingle();
+    const r = await db.from('pau_kasse_catalog').select('user_id').eq('user_id', user.workspace_id || user.id).maybeSingle();
     if (r.error) throw r.error;
     if (generation !== authGeneration) return;
     if (!r.data) {
@@ -279,7 +281,7 @@ main.addEventListener('click', async e => {
       const {
         error
       } = await db.from('pau_kasse_catalog').insert({
-        user_id: cloudUser.id,
+        user_id: cloudUser.workspace_id || cloudUser.id,
         items
       });
       if (error) throw error;

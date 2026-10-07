@@ -563,6 +563,7 @@ main.addEventListener('click', async e => {
       ['Tagesumsatz EUR', (day.total / 100).toFixed(2).replace('.', ',')],
       ['Abrechnungen', day.count],
       [],
+      ...(typeof paymentSummary==='function'?Object.entries(paymentSummary(cloudSales.filter(x=>x.business_date===selectedDate))).map(([key,value])=>[({tip:'Trinkgeld',deposit:'Pfand netto',cash:'Bar inkl. Pfand/Trinkgeld',card:'Karte inkl. Pfand/Trinkgeld'})[key],(value/100).toFixed(2).replace('.',',')]):[]),
       ['Artikel', 'Größe', 'Anzahl', 'Umsatz EUR'], ...Object.values(day.items).map(x => [x
         .name, x.label, x.qty, (x.total / 100).toFixed(2).replace('.', ',')
       ])

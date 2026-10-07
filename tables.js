@@ -22,7 +22,7 @@ openAccount = async function(user) {
 async function loadSeats() {
   const user=cloudUser;if(!user)return;
   const init=await db.rpc('pau_kasse_table_init');if(init.error)throw init.error;
-  const result=await db.from('pau_kasse_tables').select('*').eq('user_id',user.id).order('table_number',{nullsFirst:false}).order('name');
+  const result=await db.from('pau_kasse_tables').select('*').eq('user_id',user.workspace_id||user.id).order('table_number',{nullsFirst:false}).order('name');
   if(result.error)throw result.error;if(cloudUser?.id!==user.id)return;
   seats=result.data;seatsReady=true;
   if(selectedSeat && !seatDirty && !pendingSale) {
@@ -55,10 +55,10 @@ async function saveSeat() {
   if(pendingSale) {toast('Bitte die unbestätigte Zahlung erneut abschließen.');return false;}
   const id=selectedSeat;const lines=structuredClone(state.cart);cloudBusy=true;
   try {
-    const result=await db.rpc('pau_kasse_table_save',{p_id:id,p_revision:seatRevision,p_lines:lines});
+    const result=await db.rpc('pau_kasse_table_save_details',{p_id:id,p_revision:seatRevision,p_lines:lines,p_details:typeof paymentDraft==='undefined'?{}:structuredClone(paymentDraft)});
     if(result.error)throw result.error;
     seatRevision=result.data;seatDirty=false;
-    const seat=seats.find(x=>x.id===id);if(seat){seat.lines=lines;seat.revision=seatRevision;}
+    const seat=seats.find(x=>x.id===id);if(seat){seat.lines=lines;seat.revision=seatRevision;if(typeof paymentDraft!=='undefined')seat.details=structuredClone(paymentDraft);}
     persistDevice();return true;
   } catch(error){toast('Rechnung nicht bestätigt gespeichert: '+message(error));return false;}
   finally{cloudBusy=false;}
@@ -76,8 +76,10 @@ async function assignDirectSeat(id) {
   if(!id||selectedSeat||!state.cart.length||pendingSale)return;
   const source=structuredClone(state.cart);
   await loadSeats();const seat=seats.find(x=>x.id===id);if(!seat)throw Error('Rechnung nicht mehr vorhanden.');
+  const assignedPayment=typeof prepareAssignedPayment==='function'?prepareAssignedPayment(seat):null;
   if(!await ask('Rechnung zuordnen?',`${seat.name}: aktuelle Artikel zur offenen Rechnung hinzufügen?`,'Zuordnen'))return;
   selectedSeat=id;seatRevision=seat.revision;
+  if(assignedPayment){paymentDraft=assignedPayment;directPayment=blankPayment();}
   state.cart=[...structuredClone(seat.lines),...source];state.reference=seat.name;seatDirty=true;
   // Die Artikel bleiben bei Speicherfehlern als lokaler Tischentwurf erhalten.
   directCart=[];directReference='';save();
@@ -145,5 +147,5 @@ main.addEventListener('click', async e=>{
   e.stopImmediatePropagation();
   if(cloudBusy||pendingSale)return;
   if(!await ask('Offene Rechnung leeren?','Alle Artikel dieser offenen Rechnung entfernen?','Leeren'))return;
-  state.cart=[];seatDirty=true;save();await saveSeat();renderSale();
+  state.cart=[];if(typeof blankPayment==='function')paymentDraft=blankPayment();seatDirty=true;save();await saveSeat();renderSale();
 },true);
