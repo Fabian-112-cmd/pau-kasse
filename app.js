@@ -582,7 +582,8 @@ main.addEventListener('click', async e => {
 // Navigation mit PIN-Schutz
 document.querySelector('nav').addEventListener('click', async e => {
   const b = e.target.closest('[data-view]');
-  if (!b || !cloudUser) return;
+  if (!b || !cloudUser || cloudBusy) return;
+  if (typeof saveSeat === 'function' && selectedSeat && seatDirty && !await saveSeat()) return;
   if (b.dataset.view === 'settings' && view !== 'settings' && !await unlockSettings()) return;
   if (view === 'settings' && b.dataset.view !== 'settings' && draft) {
     if (!await ask('Bearbeitung verlassen?',
@@ -591,6 +592,9 @@ document.querySelector('nav').addEventListener('click', async e => {
   }
   view = b.dataset.view;
   if (view === 'day') selectedDate = today();
+  if (view === 'tables') {
+    try { await loadSeats(); } catch(error) { toast(message(error)); return; }
+  }
   if (view === 'day' || view === 'year') {
     try {
       await refreshCloud();
