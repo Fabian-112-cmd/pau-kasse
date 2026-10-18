@@ -4,7 +4,7 @@
   <!-- Grundeinstellungen -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#173f35">
+  <meta name="theme-color" content="#f3efe9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="Abrechnungshilfe für Getränke und Speisen mit bearbeitbaren Preisen und Tagesübersicht.">
   <title>PAU · MAYA – Kasse</title>
@@ -15,12 +15,59 @@
   <link rel="icon" href="icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css?v=19">
+<style id="weingut-unified-design">
+
+/* Einheitlicher Weingut-Stil: Designvariante 2, 18.10.2026 */
+:root{--purple:#634078;--ink:#302838;--muted:#756a78;--line:#ded7d0;--gold:#ae8e4d;background:#f3efe9;color:#302838;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{background:#f3efe9;color:#302838;-webkit-font-smoothing:antialiased}
+h1{color:#41294d;font-size:clamp(22px,4.8vw,27px);font-weight:750;letter-spacing:-.65px;line-height:1.2}
+h2{color:#41294d;letter-spacing:-.55px;font-weight:730}h3{color:#3c2d43;letter-spacing:-.25px;font-weight:700}
+header{position:relative;background:transparent;color:#302838;padding-bottom:20px;margin-bottom:20px}
+header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,#613b7970,#ae8e4d9c 55%,#ae8e4d10)}
+header h1{margin-top:0;margin-bottom:0}header img,h1 img{border-radius:13px;object-fit:contain;flex-shrink:0;box-shadow:0 4px 12px #42214c1a;border:1px solid #ffffff60}
+button,.btn{background:#fffaf3;color:#49354f;border-color:#dfd4cf;box-shadow:0 1px 2px #4c344008;transition:background .15s ease,border-color .15s ease}
+button:not(:disabled):hover,.btn:hover{background:#f0e6ee;border-color:#cdb9d0}
+.primary,.btn.primary{background:#634078;color:#fffaf2;border-color:#634078;box-shadow:none}
+.primary:not(:disabled):hover,.btn.primary:hover{background:#735087;color:#fffaf2;border-color:#735087}
+.card,.customer{background:#faf8f4;border:1px solid #ded7d0;box-shadow:0 2px 8px #382d2504;border-radius:15px}
+.menu{background:#faf8f4;border-color:#ded7d0;box-shadow:0 2px 8px #382d2504;border-radius:13px;color:#392f3f}
+.menu:not(:disabled):hover{background:#f1eaf2;border-color:#c9b9cf;box-shadow:0 3px 12px #51365d09}
+input,select,textarea{background:#fffdf8;color:#302838;border-color:#ddcfc9}
+input::placeholder,textarea::placeholder{color:#9a8c94;opacity:1}input:focus,select:focus,textarea:focus{border-color:#9e7aaf;outline:2px solid #b2955a40;outline-offset:1px}
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #b2955a;outline-offset:3px}
+.pill{background:#ece5ef;color:#654074;border-radius:6px}.pill.done{background:#e4eadd;color:#28633f}
+.tabs button[aria-selected="true"],.tabs button[aria-selected="true"]:hover{background:#634078;color:#fffaf2;border-color:#634078}
+dialog{background:#fffcf7;color:#302838;border:1px solid #dfd2ce;border-radius:20px;box-shadow:0 25px 90px #35233e35}
+dialog::backdrop{background:#33213c69;backdrop-filter:blur(3px)}
+.danger,.error{color:#a83232}.muted,.note,.unit{color:#756a78}
+@media(prefers-reduced-motion:reduce){button,.btn{transition:none}}
+
+:root{--green:#634078;--gold:#b2955a}
+header{background:#f3efe9;color:#302838;padding-bottom:20px;margin-bottom:0}
+header::after{left:32px;right:32px}
+.brand strong{display:block;font-size:clamp(21px,3vw,27px);line-height:1.2;font-weight:750;color:#41294d;letter-spacing:-.65px}
+.brand small{color:#756a78;font-size:13px}
+.brand .mark{display:block;width:48px;height:48px;object-fit:contain;border:0;border-radius:13px;box-shadow:0 4px 12px #42214c1a}
+nav button{background:transparent;color:#725d7a;border-color:transparent}
+nav button.active,nav button.active:hover{background:#634078;color:#fffaf2;border-color:#634078}
+.account{background:#f3efe9;color:#756a78}
+.item,.receipt,.stat,.settings,.seat-toolbar,.payment-stats span{background:#faf8f4;border-color:#ded7d0;box-shadow:0 2px 8px #382d2504}
+.sizes button{background:#f0eae4;border-color:#e0d5ca;color:#49354f}.sizes button:not(:disabled):hover{background:#e9e0ed;border-color:#cbb9d1}
+.chip{background:#ece5ef;color:#654074}.wine-filters{background:#ece7e1;border-color:#ded5ca}.wine-group-title{color:#41294d;border-color:#ded2c5}
+.tabs button.active,.tabs button.active:hover{background:#634078;color:#fffaf2;border-color:#634078}
+.stat:first-child{background:#634078;color:#fffaf2}.stat:first-child span{color:#e8dcee}
+.sticky-save{background:#f3efe9}.password-overlay form{background:#fffcf7;border:1px solid #dfd2ce}.payment-panel,.deposit-kind{border-color:#ded2c5}
+.mobile-total{background:#634078;color:#fffaf2}.mobile-total button{background:#e6d6b3;color:#41294d;border-color:#e6d6b3}
+.seat-card{background:#edf1e7;color:#35513c}.seat-card.occupied{background:#f3e6c9;color:#654d24;border-color:#cdb178}
+@media(max-width:600px){header::after{left:16px;right:16px}}
+
+</style>
 </head>
 <body>
   <!-- Kopfzeile und Navigation -->
   <header>
     <div class="brand">
-      <span class="mark">P</span>
+      <img class="mark" src="icon-180.png" alt="">
       <div>
         <strong>PAU · MAYA</strong>
         <small>Straußwirtschaft · Kasse</small>
